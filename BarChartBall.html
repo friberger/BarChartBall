@@ -1,0 +1,333 @@
+<html>
+<head>
+<title>Titta noga nu</title>
+<script type="text/javascript" src="Box2dWeb-2.1.a.3.min.js"></script>
+<script type="text/javascript" src="jquery.js"></script>
+
+<script type="text/javascript">
+
+// definitions relating to Box2D
+  var   b2Vec2 = Box2D.Common.Math.b2Vec2
+         	,	b2BodyDef = Box2D.Dynamics.b2BodyDef
+         	,	b2Body = Box2D.Dynamics.b2Body
+         	,	b2FixtureDef = Box2D.Dynamics.b2FixtureDef
+         	,	b2Fixture = Box2D.Dynamics.b2Fixture
+         	,	b2World = Box2D.Dynamics.b2World
+         	,	b2MassData = Box2D.Collision.Shapes.b2MassData
+         	,	b2PolygonShape = Box2D.Collision.Shapes.b2PolygonShape
+         	,	b2CircleShape = Box2D.Collision.Shapes.b2CircleShape
+         	,	b2DebugDraw = Box2D.Dynamics.b2DebugDraw
+            ;
+            
+// global variables
+var score = 0;
+var numberOfBars = 10; // this defines how many bars we will have, and therefore how many geounits we want in our reduced dataset
+var targetY = new Array(numberOfBars);
+var bars = new Array(numberOfBars);
+//the most important array
+var valuesForSelectedIndicator = new Array(); //[numberOfBars][2];
+
+// these are used by the physics simulator:
+var bodyDef;
+var fixDef;
+
+var indicators = new Array ();
+var indicatorsSubset = new Array (); // not indicator data, but selected indexes
+var selectedIndicator;
+
+var geoUnits = new Array ();
+var selectedGeoUnits = new Array();
+
+function selectIndicators (num) {	
+	var i=0;
+	while (i<num){
+		var randomIndicator = Math.floor(Math.random()*indicators.length)
+		if ($.inArray(randomIndicator, indicatorsSubset) < 0) {
+			indicatorsSubset.push(randomIndicator);		
+			i++;
+		}
+	
+	}	
+}
+
+function selectGeoUnits (num) {
+	var i =0;
+	while (i<num){
+		var randomGeoUnit = Math.floor(Math.random()*geoUnits.length);
+		if ($.inArray(randomGeoUnit, selectedGeoUnits) < 0) {
+			selectedGeoUnits.push(randomGeoUnit);		
+			i++;
+		}
+	}
+}
+
+function printForm () {
+	$("#indicatorForm").append("<form name='indicatorsForm'>");
+	for (var i=0; i< indicatorsSubset.length; i++) {
+		$("#indicatorForm").append ("<input type='radio' name='indicators' value='"+indicatorsSubset[i]+"' id='i"+i+"' onChange='indicatorUpdated("+i+");' /> ");	
+		$("#indicatorForm").append (indicators[indicatorsSubset[i]][0]);
+		$("#indicatorForm").append ("<br />");	
+	}
+	$("#indicatorForm").append ("</form>");
+}
+
+function indicatorUpdated(which) {
+	selectedIndicator = indicatorsSubset[which];
+	updateValuesforSelectedIndicator();	
+}
+
+function randomSelectionOfSelectedIndicator() {
+	selectedIndicator = indicatorsSubset[Math.floor(Math.random()*indicatorsSubset.length)];
+}
+
+function updateValuesforSelectedIndicator() {
+	for (var i=0;i<selectedGeoUnits.length; i++) {
+		valuesForSelectedIndicator[i] = [geoUnits[selectedGeoUnits[i]][0], geoUnits[selectedGeoUnits[i]][selectedIndicator+1]];
+	}
+	updateBars();
+}
+
+$(document).ready(function() 
+{	
+	
+	
+	
+	
+	function parseFile(path, type) { 
+		
+		function parseXml (xml) {
+			if (type=="indicators") {
+				parseIndicators (xml);
+			}
+			if (type == "geoUnits") {
+				parseGeoUnits (xml);
+			}
+		}
+	
+		function parseIndicators(xml) {
+			
+
+			$(xml).find("object").each(function()
+			{
+				if ($(this).attr("type") == "odgc.Indicator")
+				{
+					var indicator = new Array ();
+
+					$(this).find("field").each(function()
+					{
+						if ($(this).attr("name") == "name")
+						{
+							indicator.push($(this).attr("value"));
+						}
+						if ($(this).attr("name") == "id")
+						{
+							indicator.push($(this).attr("value"));
+						}	
+						if ($(this).attr("name") == "description")
+						{
+							indicator.push($(this).attr("value"));
+						}
+
+					});
+
+					indicators.push(indicator);	
+
+				}
+
+			});
+
+			/*
+			for (var i = 0; i < indicators.length; i++) {
+				for (var j = 0; j < indicators[i].length; j++) {
+					$("#output").append (indicators[i][j] + " ");
+				}
+				$("#output").append ("<br />");
+			}
+			*/
+		}
+	
+
+		function parseGeoUnits(xml)
+		{
+			
+
+			$(xml).find("object").each(function()
+			{
+				if ($(this).attr("type") == "odgc.GeoUnit")
+				{
+					var geoUnit = new Array ();
+
+					$(this).find("field").each(function()
+					{
+						if ($(this).attr("name") == "name")
+						{
+							geoUnit.push($(this).attr("value"));
+						}
+						if ($(this).attr("name") == "indicatorValues")
+						{
+							var valueArray = ($(this).text().split(" "));
+
+							for (var i = 0; i < valueArray.length; i++) 
+							{
+								geoUnit.push (valueArray[i]);
+							}
+						}
+
+					});
+
+					geoUnits.push(geoUnit);	
+
+				}
+
+			});
+			/*
+			for (var i = 0; i < geoUnits.length; i++) {
+				for (var j = 0; j < geoUnits[i].length; j++) {
+					$("#output").append (geoUnits[i][j] + " ");
+				}
+				$("#output").append ("<br />");
+			}
+			*/
+		}
+	
+		$.ajax ({
+			type: "GET",
+			url: path,
+			dataType: "xml",
+			success: parseXml
+
+		});
+	}
+	
+	parseFile("data/indicators-culled.xml", "indicators");
+	parseFile("data/geoUnits-culled2.xml", "geoUnits")
+	
+	
+ });
+
+
+</script>
+</head>
+<body>
+	
+	<script type="text/javascript">setTimeout(function(){ selectIndicators(7); selectGeoUnits(numberOfBars); randomSelectionOfSelectedIndicator(); updateValuesforSelectedIndicator(); 	printForm();  initGraphicsPhysics(); },500);</script>
+	
+	<div id="indicatorForm"></div>
+	Score: <div id="scoreCounter">0</div>
+<canvas id="canvas" width="600" height="400"></canvas>
+
+<script type="text/javascript">
+var canvas = document.getElementById("canvas");
+var scoreCounter = document.getElementById("scoreCounter");
+// functions relating to physics and graphics
+
+function initGraphicsPhysics () {
+	world = new b2World(new b2Vec2(0, 10),  true);
+	fixDef = new b2FixtureDef;
+	fixDef.density = 1.0;
+	fixDef.friction = 0.5;
+	fixDef.restitution = 0.2;	
+	bodyDef = new b2BodyDef;
+
+	//create bars
+	for (i = 0; i < numberOfBars; i++) {
+		bodyDef.type = b2Body.b2_kinematicBody;
+		bodyDef.position.x = i * 2+1; // +1 för att det inte verkar gå att skriva ända ut till vänster
+		bodyDef.position.y = 20;
+		fixDef.shape = new b2PolygonShape;
+		fixDef.shape.SetAsBox(1, 10);
+		bars[i] = world.CreateBody(bodyDef).CreateFixture(fixDef);
+	}
+
+	createNewBall ();
+
+	//setup debug draw
+	var debugDraw = new b2DebugDraw();
+	debugDraw.SetSprite(canvas.getContext("2d"));
+	debugDraw.SetDrawScale(20.0);
+	debugDraw.SetFillAlpha(0.3);
+	debugDraw.SetLineThickness(1.0);
+	debugDraw.SetFlags(b2DebugDraw.e_shapeBit | b2DebugDraw.e_jointBit);
+	world.SetDebugDraw(debugDraw);
+                
+    // calls update repeatedly?     
+	window.setInterval(update, 1000 / 60);
+}
+
+function createNewBall () {
+	//having a ball
+    bodyDef.type = b2Body.b2_dynamicBody;
+    fixDef.shape = new b2CircleShape(1.4);
+    bodyDef.position.x = 10.5;
+    bodyDef.position.y = 5;
+    ball = world.CreateBody(bodyDef).CreateFixture(fixDef);
+    ball.m_body.SetUserData ("ball");	
+}
+
+function update() {
+	world.Step(1 / 60,  10,  10);
+	world.DrawDebugData();
+	drawOnTheGlass ();
+	scoreCounter.textContent = score;
+	world.ClearForces();
+	// set bar velocities so they move towards target heights
+	for (i = 0; i < numberOfBars; i++) {	
+		var speedDifference = targetY[i] - bars[i].m_body.GetPosition().y;
+		if (Math.abs (speedDifference) < 3) {
+			bars[i].m_body.m_linearVelocity.y = speedDifference > 0 ? 0.1 : -0.1;	
+		}
+		else if (targetY[i] < bars[i].m_body.GetPosition().y) {
+			bars[i].m_body.m_linearVelocity.y = -5;	
+		}
+		else {
+			bars[i].m_body.m_linearVelocity.y = 5;	
+		}
+	}
+	checkBallOutOfBounds ();
+}
+
+function checkBallOutOfBounds () {
+	var x = ball.GetBody().m_xf.position.x;
+	if (x < 0) {
+		// fail
+		score = score - 1;
+		resetGame ();
+	}
+	else if (x > numberOfBars*2+1) {
+		// win
+		score = score + 1;
+		resetGame ();
+	}	
+}
+
+function resetGame () {
+	var oldBall = ball;
+	createNewBall ();
+	//oldBall.DestroyProxy (); // haha!
+	//oldBall.Destroy (); // haha!
+}
+
+function updateBars () {
+	// called whenever the selected indicators change
+	for (i = 0; i < 10; i++) {
+		targetY[i] = 30 - valuesForSelectedIndicator[i][1] * 20 ;
+	}
+}
+
+function drawOnTheGlass () {
+	var increment = 40;
+	var canvasHeight = 400;
+	var cx = canvas.getContext("2d");
+	for (i = 0; i < 10; i++) {
+		cx.translate (i * increment + (increment / 2) - 5, canvasHeight);
+		cx.rotate(-Math.PI/2);
+		cx.fillStyle="#000000";
+		cx.font="20px Georgia";
+		cx.fillText(valuesForSelectedIndicator[i][0],0,11);	// 11 för att hamna rätt på bars
+		cx.rotate(Math.PI/2);
+		cx.translate (-(i * increment + (increment / 2)) + 5, -canvasHeight);	
+	}
+}
+
+</script>
+</body>
